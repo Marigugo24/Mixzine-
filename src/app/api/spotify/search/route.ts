@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buscarSpotify, spotifyConfigurado } from "@/server/spotify";
+import { buscarItunes, buscarSpotify, spotifyConfigurado } from "@/server/spotify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +19,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ items }, { headers: { "Cache-Control": "private, max-age=30" } });
   } catch (e) {
     console.error("[spotify]", e);
-    return NextResponse.json({ error: "Spotify no respondió" }, { status: 502 });
+    try {
+      return NextResponse.json({ items: await buscarItunes(q), fuente: "itunes" });
+    } catch (e2) {
+      console.error("[itunes]", e2);
+      return NextResponse.json({ error: "Búsqueda no disponible" }, { status: 502 });
+    }
   }
 }

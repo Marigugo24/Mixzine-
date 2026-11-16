@@ -21,9 +21,9 @@ export async function tokenApp(): Promise<string> {
 export type SpTrack = { name: string; artists: { name: string }[]; album: { images: { url: string; width: number }[] }; external_urls: { spotify: string }; preview_url: string | null };
 export async function buscarSpotify(q: string) {
   const t = await tokenApp();
-  const r = await fetch(`https://api.spotify.com/v1/search?type=track&limit=12&market=CO&q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" });
+  const r = await fetch(`https://api.spotify.com/v1/search?type=track&limit=10&market=CO&q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" });
   if (r.status === 401) token = null;
-  if (!r.ok) throw new Error(`spotify search ${r.status}`);
+  if (!r.ok) throw new Error(`spotify search ${r.status} ${(await r.text()).slice(0, 200)}`);
   const j = (await r.json()) as { tracks: { items: SpTrack[] } };
   return j.tracks.items.map((s) => ({
     titulo: s.name,
@@ -41,3 +41,19 @@ export function redirectUri(req: Request) {
   return `${proto}://${host}/api/auth/spotify/callback`;
 }
 
+
+type Itunes = { trackName: string; artistName: string; artworkUrl100: string; trackViewUrl: string; previewUrl?: string; primaryGenreName?: string };
+/** Respaldo: iTunes consultado desde el servidor (no depende de la red ni del navegador de la persona). */
+export async function buscarItunes(q: string) {
+  const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=12&country=CO`, { cache: "no-store" });
+  if (!r.ok) throw new Error(`itunes ${r.status}`);
+  const j = (await r.json()) as { results: Itunes[] };
+  return j.results.map((x) => ({
+    titulo: x.trackName,
+    artista: x.artistName,
+    caratulaUrl: x.artworkUrl100.replace("100x100", "300x300"),
+    enlace: x.trackViewUrl,
+    previewUrl: x.previewUrl,
+    genero: x.primaryGenreName,
+  }));
+}

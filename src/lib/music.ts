@@ -12,8 +12,8 @@ export async function buscarCanciones(q: string, signal?: AbortSignal): Promise<
     try {
       const r = await fetch(`/api/spotify/search?q=${encodeURIComponent(term)}`, { signal });
       if (r.ok) {
-        const j = (await r.json()) as { items: Cancion[] };
-        if (j.items.length) return { fuente: "spotify", items: j.items };
+        const j = (await r.json()) as { items: Cancion[]; fuente?: "itunes" };
+        if (j.items.length) return { fuente: j.fuente ?? "spotify", items: j.items };
       }
     } catch (e) {
       if ((e as Error).name === "AbortError") throw e;
