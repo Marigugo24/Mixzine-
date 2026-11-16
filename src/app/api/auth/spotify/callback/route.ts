@@ -13,7 +13,10 @@ export async function GET(req: Request) {
   if (!dbConfigurada()) return fallo("backend");
   const esperado = (await cookies()).get("mz_sp_state")?.value;
   const code = u.searchParams.get("code");
-  if (!code || !esperado || u.searchParams.get("state") !== esperado) return fallo("spotify");
+  if (!code || !esperado || u.searchParams.get("state") !== esperado) {
+    console.error("[spotify cb] sin code/estado", { error: u.searchParams.get("error"), code: !!code, cookieEstado: !!esperado });
+    return fallo("spotify");
+  }
   try {
     const basic = Buffer.from(`${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`).toString("base64");
     const t = await fetch("https://accounts.spotify.com/api/token", {
@@ -21,10 +24,16 @@ export async function GET(req: Request) {
       headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri(req) }),
     });
-    if (!t.ok) return fallo("spotify");
+    if (!t.ok) {
+      console.error("[spotify cb] token", t.status, (await t.text()).slice(0, 200), "redirect_uri:", redirectUri(req));
+      return fallo("spotify");
+    }
     const { access_token } = (await t.json()) as { access_token: string };
     const me = await fetch("https://api.spotify.com/v1/me", { headers: { Authorization: `Bearer ${access_token}` } });
-    if (!me.ok) return fallo("spotify");
+    if (!me.ok) {
+      console.error("[spotify cb] /me", me.status, (await me.text()).slice(0, 200));
+      return fallo("spotify");
+    }
     const p = (await me.json()) as { id: string; email?: string; display_name?: string; images?: { url: string }[] };
     const email = (p.email ?? `${p.id}@spotify.mixzine.invalid`).toLowerCase();
     let uid = (await q<{ id: string }>("SELECT id FROM users WHERE spotify_id=$1", [p.id]))[0]?.id;
