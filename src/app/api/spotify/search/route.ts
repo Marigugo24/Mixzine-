@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buscarItunes, buscarSpotify, spotifyConfigurado } from "@/server/spotify";
+import { buscarItunes, buscarSpotify, conPreview, spotifyConfigurado } from "@/server/spotify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const hit = memo.get(k);
   if (hit && Date.now() - hit.t < 60_000) return NextResponse.json({ items: hit.items });
   try {
-    const items = await buscarSpotify(q);
+    const items = await conPreview(await buscarSpotify(q));
     if (memo.size > 200) memo.clear();
     memo.set(k, { t: Date.now(), items });
     return NextResponse.json({ items }, { headers: { "Cache-Control": "private, max-age=30" } });

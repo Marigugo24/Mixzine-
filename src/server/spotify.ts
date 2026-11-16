@@ -57,3 +57,24 @@ export async function buscarItunes(q: string) {
     genero: x.primaryGenreName,
   }));
 }
+
+const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\(.*?\)|\[.*?\]|feat\.?.*|ft\.?.*/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/ +/g, " ").trim();
+/** Spotify casi nunca entrega audio de muestra: se completa con la preview de 30 s de iTunes para la misma canción. */
+export async function conPreview<T extends { titulo: string; artista: string; previewUrl?: string }>(items: T[]): Promise<T[]> {
+  return Promise.all(
+    items.map(async (it) => {
+      if (it.previewUrl) return it;
+      try {
+        const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${it.artista.split(",")[0]} ${it.titulo}`)}&media=music&entity=song&limit=5&country=CO`, { cache: "no-store", signal: AbortSignal.timeout(3500) });
+        if (!r.ok) return it;
+        const j = (await r.json()) as { results: Itunes[] };
+        const t = norm(it.titulo);
+        const a = norm(it.artista.split(",")[0]);
+        const m = j.results.find((x) => x.previewUrl && norm(x.trackName).startsWith(t.slice(0, Math.max(4, t.length))) && norm(x.artistName).includes(a.split(" ")[0]));
+        return m ? { ...it, previewUrl: m.previewUrl } : it;
+      } catch {
+        return it;
+      }
+    }),
+  );
+}
